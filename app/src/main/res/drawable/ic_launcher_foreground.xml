@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Quote mark icon centered in safe zone (24dp padding on each side) -->
+    <group
+        android:translateX="24"
+        android:translateY="24">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M30,15 L30,35 L20,50 L15,50 L20,35 L10,35 L10,15 Z M50,15 L50,35 L40,50 L35,50 L40,35 L30,35 L30,15 Z" />
+    </group>
+</vector>

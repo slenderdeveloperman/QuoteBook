@@ -127,7 +127,13 @@ fun HomeScreen(
             AddQuotePeekFromRight(
                 onSwipeToAdd = onAddQuoteClick,
                 quoteCount = quotes.size,
-                modifier = Modifier.align(Alignment.CenterEnd)
+                modifier = if (quotes.isEmpty()) {
+                    Modifier.align(Alignment.CenterEnd)
+                } else {
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 96.dp)
+                }
             )
 
             // Search icon at bottom center
@@ -170,7 +176,8 @@ fun QuoteCardStack(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        val maxVisible = minOf(3, quotes.size - safeIndex)
+        val maxVisible = minOf(3, quotes.size)
+        val visibleIndices = List(maxVisible) { i -> (safeIndex + i) % quotes.size }
         val dragProgress = if (offsetX.value < 0) {
             (abs(offsetX.value) / 500f).coerceIn(0f, 1f)
         } else {
@@ -179,83 +186,83 @@ fun QuoteCardStack(
 
         // Draw from back to front
         for (i in (maxVisible - 1) downTo 0) {
-            val cardIndex = safeIndex + i
-            if (cardIndex < quotes.size) {
-                val isTopCard = (i == 0)
+            val cardIndex = visibleIndices[i]
+            val isTopCard = (i == 0)
 
-                QuoteCard(
-                    quote = quotes[cardIndex],
-                    index = cardIndex,
-                    onClick = { onQuoteTap(quotes[cardIndex].id) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .zIndex((maxVisible - i).toFloat())
-                        .graphicsLayer {
-                            if (isTopCard) {
-                                translationX = offsetX.value
-                                // Rotation based on swipe direction (±15° max)
-                                rotationZ = (offsetX.value / 40f).coerceIn(-15f, 15f)
-                            } else {
-                                val effectiveI = i - dragProgress
-                                translationY = effectiveI * 20.dp.toPx()
-                                val scale = 1f - (effectiveI * 0.04f)
-                                scaleX = scale
-                                scaleY = scale
-                                alpha = 1f - (effectiveI * 0.15f)
-                            }
+            QuoteCard(
+                quote = quotes[cardIndex],
+                index = cardIndex,
+                onClick = { onQuoteTap(quotes[cardIndex].id) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex((maxVisible - i).toFloat())
+                    .graphicsLayer {
+                        if (isTopCard) {
+                            translationX = offsetX.value
+                            // Rotation based on swipe direction (±15° max)
+                            rotationZ = (offsetX.value / 40f).coerceIn(-15f, 15f)
+                        } else {
+                            val effectiveI = i - dragProgress
+                            translationY = effectiveI * 20.dp.toPx()
+                            val scale = 1f - (effectiveI * 0.04f)
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = 1f - (effectiveI * 0.15f)
                         }
-                        .then(
-                            if (isTopCard) {
-                                Modifier.pointerInput(safeIndex) {
-                                    detectHorizontalDragGestures(
-                                        onDragEnd = {
-                                            scope.launch {
-                                                val threshold = 200f
-                                                when {
-                                                    // Swipe LEFT = next quote
-                                                    offsetX.value < -threshold && safeIndex < quotes.size - 1 -> {
-                                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                        offsetX.animateTo(
-                                                            targetValue = -1500f,
-                                                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                    }
+                    .then(
+                        if (isTopCard) {
+                            Modifier.pointerInput(safeIndex) {
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        scope.launch {
+                                            val threshold = 200f
+                                            val nextIndex = nextIndexAfterLeftSwipe(safeIndex, quotes.size)
+                                            val previousIndex = previousIndexAfterRightSwipe(safeIndex, quotes.size)
+                                            when {
+                                                // Swipe LEFT = next quote (wrap to start at end)
+                                                offsetX.value < -threshold && nextIndex != null -> {
+                                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    offsetX.animateTo(
+                                                        targetValue = -1500f,
+                                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                                                    )
+                                                    onIndexChange(nextIndex)
+                                                    offsetX.snapTo(0f)
+                                                }
+                                                // Swipe RIGHT = previous quote (wrap to end at start)
+                                                offsetX.value > threshold && previousIndex != null -> {
+                                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    offsetX.animateTo(
+                                                        targetValue = 1500f,
+                                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                                                    )
+                                                    onIndexChange(previousIndex)
+                                                    offsetX.snapTo(0f)
+                                                }
+                                                else -> {
+                                                    offsetX.animateTo(
+                                                        targetValue = 0f,
+                                                        animationSpec = spring(
+                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                            stiffness = Spring.StiffnessMedium
                                                         )
-                                                        onIndexChange(safeIndex + 1)
-                                                        offsetX.snapTo(0f)
-                                                    }
-                                                    // Swipe RIGHT = previous quote
-                                                    offsetX.value > threshold && safeIndex > 0 -> {
-                                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                        offsetX.animateTo(
-                                                            targetValue = 1500f,
-                                                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                                                        )
-                                                        onIndexChange(safeIndex - 1)
-                                                        offsetX.snapTo(0f)
-                                                    }
-                                                    else -> {
-                                                        offsetX.animateTo(
-                                                            targetValue = 0f,
-                                                            animationSpec = spring(
-                                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                                stiffness = Spring.StiffnessMedium
-                                                            )
-                                                        )
-                                                    }
+                                                    )
                                                 }
                                             }
-                                        },
-                                        onHorizontalDrag = { change, dragAmount ->
-                                            change.consume()
-                                            scope.launch {
-                                                offsetX.snapTo(offsetX.value + dragAmount)
-                                            }
                                         }
-                                    )
-                                }
-                            } else Modifier
-                        )
-                )
-            }
+                                    },
+                                    onHorizontalDrag = { change, dragAmount ->
+                                        change.consume()
+                                        scope.launch {
+                                            offsetX.snapTo(offsetX.value + dragAmount)
+                                        }
+                                    }
+                                )
+                            }
+                        } else Modifier
+                    )
+            )
         }
 
         // Card position indicator
@@ -403,4 +410,16 @@ fun EmptyState(modifier: Modifier = Modifier) {
             textAlign = TextAlign.Center
         )
     }
+}
+
+internal fun nextIndexAfterLeftSwipe(current: Int, total: Int): Int? {
+    if (total <= 1) return null
+    val safeCurrent = current.coerceIn(0, total - 1)
+    return (safeCurrent + 1) % total
+}
+
+internal fun previousIndexAfterRightSwipe(current: Int, total: Int): Int? {
+    if (total <= 1) return null
+    val safeCurrent = current.coerceIn(0, total - 1)
+    return (safeCurrent - 1 + total) % total
 }

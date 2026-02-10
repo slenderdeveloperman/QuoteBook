@@ -47,6 +47,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -55,7 +56,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quotecards.domain.model.Quote
 import com.quotecards.ui.components.QuoteCard
-import com.quotecards.ui.theme.CardColors
+import com.quotecards.ui.theme.HomeTitleFontFamily
+import com.quotecards.ui.theme.appCardColors
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -89,8 +91,11 @@ fun HomeScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "QuoteBook",
-                        style = MaterialTheme.typography.titleLarge
+                        text = "Quotebook",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontFamily = HomeTitleFontFamily,
+                            fontWeight = FontWeight.Normal
+                        )
                     )
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -287,7 +292,8 @@ fun AddQuotePeekFromRight(
 ) {
     val scope = rememberCoroutineScope()
     val offsetX = remember { Animatable(0f) }
-    val backgroundColor = CardColors[quoteCount % CardColors.size]
+    val cardColors = appCardColors()
+    val backgroundColor = cardColors[quoteCount % cardColors.size]
     val density = LocalDensity.current
 
     BoxWithConstraints(modifier = modifier) {

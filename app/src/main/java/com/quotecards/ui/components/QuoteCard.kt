@@ -20,7 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.quotecards.domain.model.Quote
-import com.quotecards.ui.theme.CardColors
+import com.quotecards.ui.theme.appCardColors
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -30,7 +30,8 @@ fun QuoteCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = CardColors[index % CardColors.size]
+    val cardColors = appCardColors()
+    val backgroundColor = cardColors[index % cardColors.size]
 
     Box(modifier = modifier) {
         Card(

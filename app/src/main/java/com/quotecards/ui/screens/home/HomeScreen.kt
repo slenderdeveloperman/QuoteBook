@@ -4,9 +4,10 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,12 +19,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FormatQuote
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -39,7 +43,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -57,9 +64,25 @@ import kotlin.math.roundToInt
 @Composable
 fun HomeScreen(
     onAddQuoteClick: () -> Unit,
+    onEditQuoteClick: (Long) -> Unit,
+    onSearchClick: () -> Unit,
+    navigateToQuoteId: Long? = null,
+    onNavigatedToQuote: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val quotes by viewModel.quotes.collectAsStateWithLifecycle()
+    var currentIndex by rememberSaveable { mutableIntStateOf(0) }
+
+    // Handle navigation to specific quote from search
+    LaunchedEffect(navigateToQuoteId, quotes) {
+        if (navigateToQuoteId != null && quotes.isNotEmpty()) {
+            val index = quotes.indexOfFirst { it.id == navigateToQuoteId }
+            if (index >= 0) {
+                currentIndex = index
+                onNavigatedToQuote()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -90,18 +113,37 @@ fun HomeScreen(
             } else {
                 QuoteCardStack(
                     quotes = quotes,
-                    onDeleteQuote = { quote -> viewModel.deleteQuote(quote) },
+                    currentIndex = currentIndex,
+                    onIndexChange = { currentIndex = it },
+                    onQuoteTap = { quoteId -> onEditQuoteClick(quoteId) },
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 100.dp)
+                        .padding(bottom = 80.dp)
+                        .offset(y = (-30).dp) // Position above center
                 )
             }
 
-            AddQuotePeekCard(
-                onSwipeUp = onAddQuoteClick,
+            // Peek card from right for adding quotes
+            AddQuotePeekFromRight(
+                onSwipeToAdd = onAddQuoteClick,
                 quoteCount = quotes.size,
-                modifier = Modifier.align(Alignment.BottomCenter)
+                modifier = Modifier.align(Alignment.CenterEnd)
             )
+
+            // Search icon at bottom center
+            IconButton(
+                onClick = onSearchClick,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search quotes",
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
     }
 }
@@ -109,17 +151,19 @@ fun HomeScreen(
 @Composable
 fun QuoteCardStack(
     quotes: List<Quote>,
-    onDeleteQuote: (Quote) -> Unit,
+    currentIndex: Int,
+    onIndexChange: (Int) -> Unit,
+    onQuoteTap: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var currentIndex by rememberSaveable { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
-    val offsetY = remember { Animatable(0f) }
+    val offsetX = remember { Animatable(0f) }
+    val hapticFeedback = LocalHapticFeedback.current
 
     // Ensure index is valid when quotes change
     val safeIndex = currentIndex.coerceIn(0, (quotes.size - 1).coerceAtLeast(0))
     LaunchedEffect(safeIndex) {
-        if (currentIndex != safeIndex) currentIndex = safeIndex
+        if (currentIndex != safeIndex) onIndexChange(safeIndex)
     }
 
     Box(
@@ -127,8 +171,8 @@ fun QuoteCardStack(
         contentAlignment = Alignment.Center
     ) {
         val maxVisible = minOf(3, quotes.size - safeIndex)
-        val dragProgress = if (offsetY.value < 0) {
-            (abs(offsetY.value) / 500f).coerceIn(0f, 1f)
+        val dragProgress = if (offsetX.value < 0) {
+            (abs(offsetX.value) / 500f).coerceIn(0f, 1f)
         } else {
             0f
         }
@@ -142,14 +186,15 @@ fun QuoteCardStack(
                 QuoteCard(
                     quote = quotes[cardIndex],
                     index = cardIndex,
-                    onDelete = { onDeleteQuote(quotes[cardIndex]) },
+                    onClick = { onQuoteTap(quotes[cardIndex].id) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .zIndex((maxVisible - i).toFloat())
                         .graphicsLayer {
                             if (isTopCard) {
-                                translationY = offsetY.value
-                                rotationZ = (offsetY.value / 60f).coerceIn(-3f, 3f)
+                                translationX = offsetX.value
+                                // Rotation based on swipe direction (±15° max)
+                                rotationZ = (offsetX.value / 40f).coerceIn(-15f, 15f)
                             } else {
                                 val effectiveI = i - dragProgress
                                 translationY = effectiveI * 20.dp.toPx()
@@ -162,29 +207,33 @@ fun QuoteCardStack(
                         .then(
                             if (isTopCard) {
                                 Modifier.pointerInput(safeIndex) {
-                                    detectVerticalDragGestures(
+                                    detectHorizontalDragGestures(
                                         onDragEnd = {
                                             scope.launch {
                                                 val threshold = 200f
                                                 when {
-                                                    offsetY.value < -threshold && safeIndex < quotes.size - 1 -> {
-                                                        offsetY.animateTo(
+                                                    // Swipe LEFT = next quote
+                                                    offsetX.value < -threshold && safeIndex < quotes.size - 1 -> {
+                                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        offsetX.animateTo(
                                                             targetValue = -1500f,
                                                             animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
                                                         )
-                                                        currentIndex = safeIndex + 1
-                                                        offsetY.snapTo(0f)
+                                                        onIndexChange(safeIndex + 1)
+                                                        offsetX.snapTo(0f)
                                                     }
-                                                    offsetY.value > threshold && safeIndex > 0 -> {
-                                                        offsetY.animateTo(
+                                                    // Swipe RIGHT = previous quote
+                                                    offsetX.value > threshold && safeIndex > 0 -> {
+                                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        offsetX.animateTo(
                                                             targetValue = 1500f,
                                                             animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
                                                         )
-                                                        currentIndex = safeIndex - 1
-                                                        offsetY.snapTo(0f)
+                                                        onIndexChange(safeIndex - 1)
+                                                        offsetX.snapTo(0f)
                                                     }
                                                     else -> {
-                                                        offsetY.animateTo(
+                                                        offsetX.animateTo(
                                                             targetValue = 0f,
                                                             animationSpec = spring(
                                                                 dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -195,10 +244,10 @@ fun QuoteCardStack(
                                                 }
                                             }
                                         },
-                                        onVerticalDrag = { change, dragAmount ->
+                                        onHorizontalDrag = { change, dragAmount ->
                                             change.consume()
                                             scope.launch {
-                                                offsetY.snapTo(offsetY.value + dragAmount)
+                                                offsetX.snapTo(offsetX.value + dragAmount)
                                             }
                                         }
                                     )
@@ -212,7 +261,7 @@ fun QuoteCardStack(
         // Card position indicator
         if (quotes.size > 1) {
             Text(
-                text = "${safeIndex + 1} / ${quotes.size}",
+                text = "\u00B7 ${safeIndex + 1}/${quotes.size} \u00B7",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                 modifier = Modifier
@@ -224,84 +273,101 @@ fun QuoteCardStack(
 }
 
 @Composable
-fun AddQuotePeekCard(
-    onSwipeUp: () -> Unit,
+fun AddQuotePeekFromRight(
+    onSwipeToAdd: () -> Unit,
     quoteCount: Int,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
-    val offsetY = remember { Animatable(0f) }
+    val offsetX = remember { Animatable(0f) }
     val backgroundColor = CardColors[quoteCount % CardColors.size]
+    val density = LocalDensity.current
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .offset { IntOffset(0, offsetY.value.roundToInt()) }
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragEnd = {
-                        scope.launch {
-                            if (offsetY.value < -150f) {
-                                offsetY.snapTo(0f)
-                                onSwipeUp()
-                            } else {
-                                offsetY.animateTo(
-                                    targetValue = 0f,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessMedium
+    BoxWithConstraints(modifier = modifier) {
+        val cardWidth = 280.dp
+        val visibleWidth = 70.dp // 1/4 of card visible
+        val cardWidthPx = with(density) { cardWidth.toPx() }
+        val visibleWidthPx = with(density) { visibleWidth.toPx() }
+        val threshold = cardWidthPx * 0.5f // 50% reveal threshold
+
+        Card(
+            modifier = Modifier
+                .width(cardWidth)
+                .height(180.dp)
+                .offset { IntOffset((cardWidthPx - visibleWidthPx + offsetX.value).roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch {
+                                if (abs(offsetX.value) > threshold) {
+                                    offsetX.snapTo(0f)
+                                    onSwipeToAdd()
+                                } else {
+                                    offsetX.animateTo(
+                                        targetValue = 0f,
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessMedium
+                                        )
                                     )
-                                )
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            scope.launch {
+                                // Only allow dragging left (negative values)
+                                val newOffset = (offsetX.value + dragAmount).coerceAtMost(0f)
+                                    .coerceAtLeast(-(cardWidthPx - visibleWidthPx))
+                                offsetX.snapTo(newOffset)
                             }
                         }
-                    },
-                    onVerticalDrag = { change, dragAmount ->
-                        change.consume()
-                        scope.launch {
-                            val newOffset = (offsetY.value + dragAmount).coerceAtMost(0f)
-                            offsetY.snapTo(newOffset)
-                        }
-                    }
-                )
-            },
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomEnd = 0.dp, bottomStart = 0.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                    )
+                },
+            shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = backgroundColor)
         ) {
-            // Drag handle
             Box(
                 modifier = Modifier
-                    .width(40.dp)
-                    .height(4.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(2.dp)
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(visibleWidth - 16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add quote",
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                     )
-            )
+                }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "\u201C",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "Add a new quote",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
+                // Full content revealed on drag
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = visibleWidth - 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "\u201C",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Add a new quote",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }
@@ -331,7 +397,7 @@ fun EmptyState(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Swipe up from the bottom to add your first inspiring quote",
+            text = "Drag the card from the right edge to add your first inspiring quote",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             textAlign = TextAlign.Center

@@ -15,6 +15,7 @@ interface QuoteRepository {
     suspend fun updateQuote(quote: Quote)
     suspend fun deleteQuote(quote: Quote)
     suspend fun deleteQuoteById(id: Long)
+    fun searchQuotes(query: String): Flow<List<Quote>>
 }
 
 @Singleton
@@ -46,5 +47,11 @@ class QuoteRepositoryImpl @Inject constructor(
 
     override suspend fun deleteQuoteById(id: Long) {
         quoteDao.deleteQuoteById(id)
+    }
+
+    override fun searchQuotes(query: String): Flow<List<Quote>> {
+        return quoteDao.searchQuotes(query.trim()).map { entities ->
+            entities.map { it.toDomainModel() }
+        }
     }
 }

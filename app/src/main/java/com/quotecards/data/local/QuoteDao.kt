@@ -31,4 +31,12 @@ interface QuoteDao {
 
     @Query("SELECT COUNT(*) FROM quotes")
     suspend fun getQuoteCount(): Int
+
+    @Query("""
+        SELECT * FROM quotes
+        WHERE text LIKE '%' || :query || '%'
+        OR author LIKE '%' || :query || '%'
+        ORDER BY createdAt DESC
+    """)
+    fun searchQuotes(query: String): Flow<List<QuoteEntity>>
 }

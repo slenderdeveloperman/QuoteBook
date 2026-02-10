@@ -50,7 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quotecards.domain.model.Quote
-import com.quotecards.ui.theme.CardColors
+import com.quotecards.ui.theme.appCardColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -218,7 +218,8 @@ fun SearchResultCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = CardColors[(quote.id % CardColors.size).toInt()]
+    val cardColors = appCardColors()
+    val backgroundColor = cardColors[(quote.id % cardColors.size).toInt()]
 
     Card(
         modifier = modifier

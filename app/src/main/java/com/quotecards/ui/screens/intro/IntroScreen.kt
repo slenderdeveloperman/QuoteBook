@@ -24,12 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.quotecards.ui.theme.CardColors
+import com.quotecards.ui.theme.appCardColors
 
 @Composable
 fun IntroScreen(
     onGetStarted: () -> Unit
 ) {
+    val cardColors = appCardColors()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -46,7 +47,7 @@ fun IntroScreen(
                 modifier = Modifier
                     .size(120.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(CardColors[0]),
+                    .background(cardColors[0]),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

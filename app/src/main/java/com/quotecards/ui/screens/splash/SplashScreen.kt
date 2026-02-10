@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.quotecards.ui.theme.CardColors
+import com.quotecards.ui.theme.appCardColors
 import kotlinx.coroutines.delay
 
 @Composable
@@ -35,6 +35,7 @@ fun SplashScreen(
     onSplashComplete: (Boolean) -> Unit,
     hasSeenIntro: Boolean
 ) {
+    val cardColors = appCardColors()
     var startAnimation by remember { mutableStateOf(false) }
     val alphaAnim by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
@@ -64,7 +65,7 @@ fun SplashScreen(
                 modifier = Modifier
                     .size(120.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(CardColors[0]),
+                    .background(cardColors[0]),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

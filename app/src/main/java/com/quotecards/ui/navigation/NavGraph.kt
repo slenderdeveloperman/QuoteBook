@@ -5,16 +5,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -27,7 +24,6 @@ import com.quotecards.ui.screens.home.HomeScreen
 import com.quotecards.ui.screens.intro.IntroScreen
 import com.quotecards.ui.screens.search.SearchScreen
 import com.quotecards.ui.screens.splash.SplashScreen
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String) {
@@ -64,9 +60,8 @@ fun QuoteNavGraph(
             val hasSeenIntro by appPreferences.hasSeenIntro.collectAsState(initial = false)
 
             SplashScreen(
-                hasSeenIntro = hasSeenIntro,
-                onSplashComplete = { seenIntro ->
-                    if (seenIntro) {
+                onSplashComplete = {
+                    if (hasSeenIntro) {
                         navController.navigate(Screen.Home.route) {
                             popUpTo(Screen.Splash.route) { inclusive = true }
                         }

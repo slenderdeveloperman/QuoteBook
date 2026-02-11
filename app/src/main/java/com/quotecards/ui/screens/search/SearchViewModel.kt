@@ -11,10 +11,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import com.quotecards.utils.AppConstants
 import javax.inject.Inject
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -26,13 +29,21 @@ class SearchViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     val searchResults: StateFlow<List<Quote>> = _searchQuery
-        .debounce(300) // Wait 300ms after user stops typing
+        .debounce(AppConstants.SEARCH_DEBOUNCE_MS)
         .flatMapLatest { query ->
             if (query.isBlank()) {
                 flowOf(emptyList())
             } else {
                 quoteRepository.searchQuotes(query)
+                    .onStart { _errorMessage.value = null }
+                    .catch { e ->
+                        _errorMessage.value = "Search failed: ${e.localizedMessage ?: "Please try again"}"
+                        emit(emptyList())
+                    }
             }
         }
         .stateIn(
@@ -47,5 +58,9 @@ class SearchViewModel @Inject constructor(
 
     fun clearSearch() {
         _searchQuery.value = ""
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
     }
 }

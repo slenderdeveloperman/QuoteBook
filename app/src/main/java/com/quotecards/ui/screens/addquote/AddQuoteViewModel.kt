@@ -20,7 +20,7 @@ data class AddQuoteUiState(
     val errorMessage: String? = null
 ) {
     val isValid: Boolean
-        get() = quoteText.isNotBlank()
+        get() = quoteText.trim().isNotBlank()
 }
 
 @HiltViewModel
@@ -42,6 +42,9 @@ class AddQuoteViewModel @Inject constructor(
     fun saveQuote() {
         val currentState = _uiState.value
 
+        // Prevent duplicate saves on rapid clicks
+        if (currentState.isLoading || currentState.isSaved) return
+
         if (!currentState.isValid) {
             _uiState.update { it.copy(errorMessage = "Please enter a quote") }
             return
@@ -61,7 +64,7 @@ class AddQuoteViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Failed to save quote: ${e.message}"
+                        errorMessage = "Failed to save quote: ${e.localizedMessage ?: "Please try again"}"
                     )
                 }
             }

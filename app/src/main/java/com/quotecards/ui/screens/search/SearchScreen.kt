@@ -51,6 +51,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quotecards.domain.model.Quote
 import com.quotecards.ui.theme.appCardColors
+import com.quotecards.utils.AppConstants
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +75,12 @@ fun SearchScreen(
                 title = {
                     TextField(
                         value = searchQuery,
-                        onValueChange = { viewModel.updateSearchQuery(it) },
+                        onValueChange = { newValue ->
+                            // Limit search input length for performance
+                            if (newValue.length <= AppConstants.MAX_SEARCH_LENGTH) {
+                                viewModel.updateSearchQuery(newValue)
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),

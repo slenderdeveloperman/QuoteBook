@@ -27,7 +27,11 @@ object AppModule {
             context,
             QuoteDatabase::class.java,
             QuoteDatabase.DATABASE_NAME
-        ).build()
+        )
+            // Allows destructive migration for schema changes during development
+            // TODO: Replace with proper migrations before production release
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides

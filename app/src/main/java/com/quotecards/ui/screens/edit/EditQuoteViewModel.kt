@@ -25,7 +25,7 @@ data class EditQuoteUiState(
     val errorMessage: String? = null
 ) {
     val isValid: Boolean
-        get() = quoteText.isNotBlank()
+        get() = quoteText.trim().isNotBlank()
 }
 
 @HiltViewModel
@@ -34,13 +34,22 @@ class EditQuoteViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val quoteId: Long = savedStateHandle.get<Long>("quoteId") ?: 0L
+    private val quoteId: Long = savedStateHandle.get<Long>("quoteId") ?: -1L
 
     private val _uiState = MutableStateFlow(EditQuoteUiState())
     val uiState: StateFlow<EditQuoteUiState> = _uiState.asStateFlow()
 
     init {
-        loadQuote()
+        if (quoteId > 0) {
+            loadQuote()
+        } else {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    errorMessage = "Invalid quote ID"
+                )
+            }
+        }
     }
 
     private fun loadQuote() {
@@ -69,7 +78,7 @@ class EditQuoteViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Failed to load quote: ${e.message}"
+                        errorMessage = "Failed to load quote: ${e.localizedMessage ?: "Please try again"}"
                     )
                 }
             }
@@ -86,6 +95,9 @@ class EditQuoteViewModel @Inject constructor(
 
     fun saveQuote() {
         val currentState = _uiState.value
+
+        // Prevent duplicate saves
+        if (currentState.isLoading || currentState.isSaved) return
 
         if (!currentState.isValid) {
             _uiState.update { it.copy(errorMessage = "Please enter a quote") }
@@ -108,7 +120,7 @@ class EditQuoteViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Failed to save quote: ${e.message}"
+                        errorMessage = "Failed to save quote: ${e.localizedMessage ?: "Please try again"}"
                     )
                 }
             }
@@ -134,7 +146,7 @@ class EditQuoteViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Failed to delete quote: ${e.message}"
+                        errorMessage = "Failed to delete quote: ${e.localizedMessage ?: "Please try again"}"
                     )
                 }
             }

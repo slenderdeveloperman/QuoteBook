@@ -12,12 +12,15 @@ data class QuoteEntity(
     val author: String,
     val createdAt: Long = System.currentTimeMillis()
 ) {
-    fun toDomainModel(): Quote = Quote(
-        id = id,
-        text = text,
-        author = author,
-        createdAt = createdAt
-    )
+    fun toDomainModel(): Quote {
+        require(text.isNotBlank()) { "Quote text cannot be blank (id=$id)" }
+        return Quote(
+            id = id,
+            text = text,
+            author = author.ifBlank { "Unknown" },
+            createdAt = createdAt
+        )
+    }
 
     companion object {
         fun fromDomainModel(quote: Quote): QuoteEntity = QuoteEntity(

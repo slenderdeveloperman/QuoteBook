@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,14 +29,15 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.quotecards.ui.theme.appCardColors
+import com.quotecards.utils.AppConstants
 import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(
-    onSplashComplete: (Boolean) -> Unit,
-    hasSeenIntro: Boolean
+    onSplashComplete: () -> Unit
 ) {
     val cardColors = appCardColors()
+    val currentOnSplashComplete by rememberUpdatedState(onSplashComplete)
     var startAnimation by remember { mutableStateOf(false) }
     val alphaAnim by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
@@ -45,8 +47,8 @@ fun SplashScreen(
 
     LaunchedEffect(Unit) {
         startAnimation = true
-        delay(1500) // Show splash for 1.5 seconds
-        onSplashComplete(hasSeenIntro)
+        delay(AppConstants.SPLASH_DELAY_MS)
+        currentOnSplashComplete()
     }
 
     Box(

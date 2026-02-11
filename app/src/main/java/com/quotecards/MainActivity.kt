@@ -8,11 +8,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import android.util.Log
 import com.quotecards.data.preferences.AppPreferences
 import com.quotecards.ui.navigation.QuoteNavGraph
 import com.quotecards.ui.theme.QuoteBookTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+
+private const val TAG = "MainActivity"
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {

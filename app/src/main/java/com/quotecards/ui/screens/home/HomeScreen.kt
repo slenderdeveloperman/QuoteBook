@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -58,6 +59,8 @@ import com.quotecards.domain.model.Quote
 import com.quotecards.ui.components.QuoteCard
 import com.quotecards.ui.theme.HomeTitleFontFamily
 import com.quotecards.ui.theme.appCardColors
+import com.quotecards.utils.AppConstants
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -81,8 +84,9 @@ fun HomeScreen(
             val index = quotes.indexOfFirst { it.id == navigateToQuoteId }
             if (index >= 0) {
                 currentIndex = index
-                onNavigatedToQuote()
             }
+            // Always clear navigation state to prevent stale IDs
+            onNavigatedToQuote()
         }
     }
 
@@ -181,10 +185,10 @@ fun QuoteCardStack(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        val maxVisible = minOf(3, quotes.size)
+        val maxVisible = minOf(AppConstants.MAX_VISIBLE_CARDS, quotes.size)
         val visibleIndices = List(maxVisible) { i -> (safeIndex + i) % quotes.size }
         val dragProgress = if (offsetX.value < 0) {
-            (abs(offsetX.value) / 500f).coerceIn(0f, 1f)
+            (abs(offsetX.value) / AppConstants.ANIMATION_DIVISOR).coerceIn(0f, 1f)
         } else {
             0f
         }
@@ -192,20 +196,21 @@ fun QuoteCardStack(
         // Draw from back to front
         for (i in (maxVisible - 1) downTo 0) {
             val cardIndex = visibleIndices[i]
+            val quote = quotes.getOrNull(cardIndex) ?: continue
             val isTopCard = (i == 0)
 
             QuoteCard(
-                quote = quotes[cardIndex],
+                quote = quote,
                 index = cardIndex,
-                onClick = { onQuoteTap(quotes[cardIndex].id) },
+                onClick = { onQuoteTap(quote.id) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .zIndex((maxVisible - i).toFloat())
                     .graphicsLayer {
                         if (isTopCard) {
                             translationX = offsetX.value
-                            // Rotation based on swipe direction (±15° max)
-                            rotationZ = (offsetX.value / 40f).coerceIn(-15f, 15f)
+                            // Rotation based on swipe direction
+                            rotationZ = (offsetX.value / 40f).coerceIn(-AppConstants.MAX_ROTATION_DEGREES, AppConstants.MAX_ROTATION_DEGREES)
                         } else {
                             val effectiveI = i - dragProgress
                             translationY = effectiveI * 20.dp.toPx()
@@ -221,7 +226,10 @@ fun QuoteCardStack(
                                 detectHorizontalDragGestures(
                                     onDragEnd = {
                                         scope.launch {
-                                            val threshold = 200f
+                                            // Early exit if coroutine is cancelled (screen disposed)
+                                            if (!isActive) return@launch
+
+                                            val threshold = AppConstants.SWIPE_THRESHOLD
                                             val nextIndex = nextIndexAfterLeftSwipe(safeIndex, quotes.size)
                                             val previousIndex = previousIndexAfterRightSwipe(safeIndex, quotes.size)
                                             when {
@@ -229,21 +237,27 @@ fun QuoteCardStack(
                                                 offsetX.value < -threshold && nextIndex != null -> {
                                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                                     offsetX.animateTo(
-                                                        targetValue = -1500f,
+                                                        targetValue = -AppConstants.SWIPE_EXIT_OFFSET,
                                                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
                                                     )
-                                                    onIndexChange(nextIndex)
-                                                    offsetX.snapTo(0f)
+                                                    // Check again after animation completes
+                                                    if (isActive) {
+                                                        onIndexChange(nextIndex)
+                                                        offsetX.snapTo(0f)
+                                                    }
                                                 }
                                                 // Swipe RIGHT = previous quote (wrap to end at start)
                                                 offsetX.value > threshold && previousIndex != null -> {
                                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                                     offsetX.animateTo(
-                                                        targetValue = 1500f,
+                                                        targetValue = AppConstants.SWIPE_EXIT_OFFSET,
                                                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
                                                     )
-                                                    onIndexChange(previousIndex)
-                                                    offsetX.snapTo(0f)
+                                                    // Check again after animation completes
+                                                    if (isActive) {
+                                                        onIndexChange(previousIndex)
+                                                        offsetX.snapTo(0f)
+                                                    }
                                                 }
                                                 else -> {
                                                     offsetX.animateTo(
@@ -292,6 +306,7 @@ fun AddQuotePeekFromRight(
 ) {
     val scope = rememberCoroutineScope()
     val offsetX = remember { Animatable(0f) }
+    var hasTriggeredNavigation by remember { mutableStateOf(false) }
     val cardColors = appCardColors()
     val backgroundColor = cardColors[quoteCount % cardColors.size]
     val density = LocalDensity.current
@@ -310,11 +325,22 @@ fun AddQuotePeekFromRight(
                 .offset { IntOffset((cardWidthPx - visibleWidthPx + offsetX.value).roundToInt(), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
+                        onDragStart = {
+                            // Reset flag on new drag gesture
+                            hasTriggeredNavigation = false
+                        },
                         onDragEnd = {
                             scope.launch {
+                                // Early exit if cancelled or already triggered
+                                if (!isActive || hasTriggeredNavigation) {
+                                    return@launch
+                                }
                                 if (abs(offsetX.value) > threshold) {
                                     offsetX.snapTo(0f)
-                                    onSwipeToAdd()
+                                    if (isActive) {
+                                        hasTriggeredNavigation = true
+                                        onSwipeToAdd()
+                                    }
                                 } else {
                                     offsetX.animateTo(
                                         targetValue = 0f,
@@ -327,6 +353,7 @@ fun AddQuotePeekFromRight(
                             }
                         },
                         onHorizontalDrag = { change, dragAmount ->
+                            if (hasTriggeredNavigation) return@detectHorizontalDragGestures
                             change.consume()
                             scope.launch {
                                 // Only allow dragging left (negative values)

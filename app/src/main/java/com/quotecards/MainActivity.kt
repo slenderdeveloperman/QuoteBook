@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import android.util.Log
 import com.quotecards.data.preferences.AppPreferences
+import com.quotecards.ui.components.AnimatedGradientBackground
 import com.quotecards.ui.navigation.QuoteNavGraph
 import com.quotecards.ui.theme.QuoteBookTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -30,9 +32,11 @@ class MainActivity : ComponentActivity() {
             QuoteBookTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = Color.Transparent
                 ) {
-                    QuoteNavGraph(appPreferences = appPreferences)
+                    AnimatedGradientBackground {
+                        QuoteNavGraph(appPreferences = appPreferences)
+                    }
                 }
             }
         }

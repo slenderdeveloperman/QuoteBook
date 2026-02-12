@@ -7,8 +7,10 @@ import com.quotecards.data.repository.QuoteRepository
 import com.quotecards.domain.model.Quote
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,6 +19,7 @@ data class EditQuoteUiState(
     val quoteId: Long = 0,
     val quoteText: String = "",
     val author: String = "",
+    val category: String = "",
     val createdAt: Long = 0,
     val isLoading: Boolean = true,
     val isSaved: Boolean = false,
@@ -38,6 +41,14 @@ class EditQuoteViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(EditQuoteUiState())
     val uiState: StateFlow<EditQuoteUiState> = _uiState.asStateFlow()
+
+    val categories: StateFlow<List<String>> = quoteRepository
+        .getCategories()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     init {
         if (quoteId > 0) {
@@ -62,6 +73,7 @@ class EditQuoteViewModel @Inject constructor(
                             quoteId = quote.id,
                             quoteText = quote.text,
                             author = quote.author,
+                            category = quote.category,
                             createdAt = quote.createdAt,
                             isLoading = false
                         )
@@ -93,6 +105,10 @@ class EditQuoteViewModel @Inject constructor(
         _uiState.update { it.copy(author = author) }
     }
 
+    fun updateCategory(category: String) {
+        _uiState.update { it.copy(category = category) }
+    }
+
     fun saveQuote() {
         val currentState = _uiState.value
 
@@ -112,6 +128,7 @@ class EditQuoteViewModel @Inject constructor(
                     id = currentState.quoteId,
                     text = currentState.quoteText.trim(),
                     author = currentState.author.trim().ifBlank { "Unknown" },
+                    category = currentState.category,
                     createdAt = currentState.createdAt
                 )
                 quoteRepository.updateQuote(quote)

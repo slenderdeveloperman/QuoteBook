@@ -53,4 +53,39 @@ class FakeQuoteRepository(
             }
         }
     }
+
+    override fun getQuotesByCategory(category: String): Flow<List<Quote>> {
+        return quotesFlow.map { quotes ->
+            if (category.isBlank()) {
+                quotes
+            } else {
+                quotes.filter { it.category == category }
+            }
+        }
+    }
+
+    override fun getCategories(): Flow<List<String>> {
+        return quotesFlow.map { quotes ->
+            quotes.map { it.category }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+        }
+    }
+
+    override fun getUncategorizedQuotes(): Flow<List<Quote>> {
+        return quotesFlow.map { quotes ->
+            quotes.filter { it.category.isBlank() }
+        }
+    }
+
+    override suspend fun assignQuotesToCategory(quoteIds: List<Long>, category: String) {
+        quotesFlow.value = quotesFlow.value.map { quote ->
+            if (quote.id in quoteIds) {
+                quote.copy(category = category)
+            } else {
+                quote
+            }
+        }
+    }
 }

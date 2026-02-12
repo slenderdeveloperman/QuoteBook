@@ -40,3 +40,15 @@ private val DarkCardColors = listOf(
 fun appCardColors(): List<Color> {
     return if (isSystemInDarkTheme()) DarkCardColors else LightCardColors
 }
+
+// Animated Gradient Background Colors - Light Mode
+val GradientBlobLight1 = Color(0x40FFF8F0) // Warm cream with alpha
+val GradientBlobLight2 = Color(0x40E8E0F0) // Soft lavender with alpha
+val GradientBlobLight3 = Color(0x40E0F0F8) // Ocean blue tint with alpha
+val GradientBlobLight4 = Color(0x40F0E8F8) // Subtle purple with alpha
+
+// Animated Gradient Background Colors - Dark Mode
+val GradientBlobDark1 = Color(0x301A1815) // Deep warm with alpha
+val GradientBlobDark2 = Color(0x301E1A24) // Muted lavender with alpha
+val GradientBlobDark3 = Color(0x30151A1E) // Dark ocean with alpha
+val GradientBlobDark4 = Color(0x301A1520) // Deep purple with alpha

@@ -75,6 +75,9 @@ import com.quotecards.ui.theme.HomeTitleFontFamily
 import com.quotecards.ui.theme.appCardColors
 import com.quotecards.utils.AppConstants
 import androidx.compose.ui.graphics.Color
+import com.quotecards.ui.theme.HomeTitleFontFamily
+import com.quotecards.ui.theme.appCardColors
+import com.quotecards.utils.AppConstants
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -428,6 +431,10 @@ fun QuoteCardStack(
                                                             )
                                                             cardMovingToBottom = null
                                                         }
+                                                    // Check again after animation completes
+                                                    if (isActive) {
+                                                        onIndexChange(nextIndex)
+                                                        offsetX.snapTo(0f)
                                                     }
                                                 }
                                                 // Swipe RIGHT = previous quote (wrap to end at start)

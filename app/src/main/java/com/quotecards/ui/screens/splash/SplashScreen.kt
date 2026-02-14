@@ -67,7 +67,7 @@ fun SplashScreen(
             Box(
                 modifier = Modifier
                     .size(120.dp)
-                    .clip(RectangleShape)
+                    .clip(RoundedCornerShape(24.dp))
                     .background(cardColors[0]),
                 contentAlignment = Alignment.Center
             ) {

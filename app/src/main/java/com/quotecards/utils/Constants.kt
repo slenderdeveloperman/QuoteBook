@@ -22,4 +22,8 @@ object AppConstants {
     const val CARD_ALPHA_FACTOR = 0.15f
     const val CARD_TRANSLATION_Y_DP = 20
     const val MAX_ROTATION_DEGREES = 15f
+    const val CARD_STACK_BOTTOM_PADDING_DP = 140
+
+    // Animation constants
+    const val CARD_TO_BOTTOM_DURATION_MS = 400
 }

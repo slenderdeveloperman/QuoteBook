@@ -39,4 +39,20 @@ interface QuoteDao {
         ORDER BY createdAt DESC
     """)
     fun searchQuotes(query: String): Flow<List<QuoteEntity>>
+
+    @Query("""
+        SELECT * FROM quotes
+        WHERE :category = '' OR category = :category
+        ORDER BY createdAt DESC
+    """)
+    fun getQuotesByCategory(category: String): Flow<List<QuoteEntity>>
+
+    @Query("SELECT DISTINCT category FROM quotes WHERE category != '' ORDER BY category")
+    fun getCategories(): Flow<List<String>>
+
+    @Query("SELECT * FROM quotes WHERE category = '' ORDER BY createdAt DESC")
+    fun getUncategorizedQuotes(): Flow<List<QuoteEntity>>
+
+    @Query("UPDATE quotes SET category = :category WHERE id IN (:quoteIds)")
+    suspend fun assignQuotesToCategory(quoteIds: List<Long>, category: String)
 }

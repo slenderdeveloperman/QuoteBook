@@ -111,5 +111,34 @@ class QuoteRepositoryImplTest {
             }
             return MutableStateFlow(filtered)
         }
+
+        override fun getQuotesByCategory(category: String): Flow<List<QuoteEntity>> {
+            val filtered = if (category.isBlank()) {
+                entitiesFlow.value
+            } else {
+                entitiesFlow.value.filter { it.category == category }
+            }
+            return MutableStateFlow(filtered)
+        }
+
+        override fun getCategories(): Flow<List<String>> {
+            val categories = entitiesFlow.value
+                .map { it.category }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+            return MutableStateFlow(categories)
+        }
+
+        override fun getUncategorizedQuotes(): Flow<List<QuoteEntity>> {
+            val uncategorized = entitiesFlow.value.filter { it.category.isBlank() }
+            return MutableStateFlow(uncategorized)
+        }
+
+        override suspend fun assignQuotesToCategory(quoteIds: List<Long>, category: String) {
+            entitiesFlow.value = entitiesFlow.value.map { entity ->
+                if (entity.id in quoteIds) entity.copy(category = category) else entity
+            }
+        }
     }
 }

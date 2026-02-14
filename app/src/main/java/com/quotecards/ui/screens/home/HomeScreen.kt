@@ -1,14 +1,20 @@
 package com.quotecards.ui.screens.home
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.util.lerp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,13 +24,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Style
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -56,7 +67,14 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quotecards.domain.model.Quote
+import com.quotecards.ui.components.CategoryBar
+import com.quotecards.ui.components.CreateCategoryBottomSheet
 import com.quotecards.ui.components.QuoteCard
+import com.quotecards.ui.components.QuoteDetailBottomSheet
+import com.quotecards.ui.theme.HomeTitleFontFamily
+import com.quotecards.ui.theme.appCardColors
+import com.quotecards.utils.AppConstants
+import androidx.compose.ui.graphics.Color
 import com.quotecards.ui.theme.HomeTitleFontFamily
 import com.quotecards.ui.theme.appCardColors
 import com.quotecards.utils.AppConstants
@@ -76,7 +94,13 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val quotes by viewModel.quotes.collectAsStateWithLifecycle()
+    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val uncategorizedQuotes by viewModel.uncategorizedQuotes.collectAsStateWithLifecycle()
     var currentIndex by rememberSaveable { mutableIntStateOf(0) }
+    var selectedQuote by remember { mutableStateOf<Quote?>(null) }
+    var showCreateCategorySheet by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     // Handle navigation to specific quote from search
     LaunchedEffect(navigateToQuoteId, quotes) {
@@ -92,7 +116,7 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
                     Text(
                         text = "Quotebook",
@@ -102,63 +126,163 @@ fun HomeScreen(
                         )
                     )
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                actions = {
+                    IconButton(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://x.com/slndrtweeterman"))
+                            context.startActivity(intent)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Construction,
+                            contentDescription = "Builder",
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
                 )
             )
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (quotes.isEmpty()) {
-                EmptyState(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 100.dp)
-                )
-            } else {
-                QuoteCardStack(
-                    quotes = quotes,
-                    currentIndex = currentIndex,
-                    onIndexChange = { currentIndex = it },
-                    onQuoteTap = { quoteId -> onEditQuoteClick(quoteId) },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 80.dp)
-                        .offset(y = (-30).dp) // Position above center
-                )
-            }
-
-            // Peek card from right for adding quotes
-            AddQuotePeekFromRight(
-                onSwipeToAdd = onAddQuoteClick,
-                quoteCount = quotes.size,
-                modifier = if (quotes.isEmpty()) {
-                    Modifier.align(Alignment.CenterEnd)
-                } else {
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(bottom = 96.dp)
+            // Category filter bar
+            CategoryBar(
+                categories = categories,
+                selectedCategory = selectedCategory,
+                onCategorySelected = { category ->
+                    viewModel.setCategory(category)
+                    currentIndex = 0 // Reset index when category changes
                 }
             )
 
-            // Search icon at bottom center
-            IconButton(
-                onClick = onSearchClick,
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 24.dp)
+                    .fillMaxSize()
+                    .weight(1f)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search quotes",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                    modifier = Modifier.size(28.dp)
+                if (quotes.isEmpty()) {
+                    EmptyState(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = 100.dp)
+                    )
+                } else {
+                    QuoteCardStack(
+                        quotes = quotes,
+                        currentIndex = currentIndex,
+                        onIndexChange = { currentIndex = it },
+                        onQuoteTap = { quoteId -> selectedQuote = quotes.find { it.id == quoteId } },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = AppConstants.CARD_STACK_BOTTOM_PADDING_DP.dp)
+                            .offset(y = 0.dp) // Cards stack upward
+                    )
+                }
+
+                // Peek card from right for adding quotes
+                AddQuotePeekFromRight(
+                    onSwipeToAdd = onAddQuoteClick,
+                    quoteCount = quotes.size,
+                    modifier = if (quotes.isEmpty()) {
+                        Modifier.align(Alignment.CenterEnd)
+                    } else {
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(bottom = 140.dp)
+                    }
                 )
+
+                // Bottom center pill with Search + Shuffle
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 24.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(24.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Search button
+                    IconButton(onClick = onSearchClick) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search quotes",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    // Organise button
+                    IconButton(onClick = { showCreateCategorySheet = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Style,
+                            contentDescription = "Organise cards",
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    // Shuffle button (only when multiple quotes)
+                    if (quotes.size > 1) {
+                        val hapticFeedback = LocalHapticFeedback.current
+                        IconButton(
+                            onClick = {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                var newIndex: Int
+                                do {
+                                    newIndex = (0 until quotes.size).random()
+                                } while (newIndex == currentIndex)
+                                currentIndex = newIndex
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shuffle,
+                                contentDescription = "Shuffle cards",
+                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
             }
+        }
+
+        // Quote detail bottom sheet
+        selectedQuote?.let { quote ->
+            QuoteDetailBottomSheet(
+                quote = quote,
+                onDismiss = { selectedQuote = null },
+                onEdit = { quoteId ->
+                    selectedQuote = null
+                    onEditQuoteClick(quoteId)
+                },
+                onDelete = { quoteToDelete ->
+                    viewModel.deleteQuote(quoteToDelete)
+                    selectedQuote = null
+                }
+            )
+        }
+
+        // Create category bottom sheet
+        if (showCreateCategorySheet) {
+            CreateCategoryBottomSheet(
+                uncategorizedQuotes = uncategorizedQuotes,
+                onDismiss = { showCreateCategorySheet = false },
+                onCreateCategory = { name, quoteIds ->
+                    viewModel.createCategory(name, quoteIds)
+                    showCreateCategorySheet = false
+                }
+            )
         }
     }
 }
@@ -174,6 +298,12 @@ fun QuoteCardStack(
     val scope = rememberCoroutineScope()
     val offsetX = remember { Animatable(0f) }
     val hapticFeedback = LocalHapticFeedback.current
+    val density = LocalDensity.current
+
+    // State for the card moving to bottom animation
+    var cardMovingToBottom by remember { mutableStateOf<Quote?>(null) }
+    var cardMovingToBottomIndex by remember { mutableIntStateOf(0) }
+    val cardToBottomProgress = remember { Animatable(0f) }
 
     // Ensure index is valid when quotes change
     val safeIndex = currentIndex.coerceIn(0, (quotes.size - 1).coerceAtLeast(0))
@@ -191,6 +321,38 @@ fun QuoteCardStack(
             (abs(offsetX.value) / AppConstants.ANIMATION_DIVISOR).coerceIn(0f, 1f)
         } else {
             0f
+        }
+
+        // Render the animating card first (behind everything else)
+        cardMovingToBottom?.let { quote ->
+            val screenWidthPx = with(density) { 400.dp.toPx() }
+            val backCardTranslationY = with(density) { -(maxVisible - 1) * AppConstants.CARD_TRANSLATION_Y_DP.dp.toPx() }
+            val backCardScale = 1f - ((maxVisible - 1) * AppConstants.CARD_SCALE_FACTOR)
+            val backCardAlpha = 1f - ((maxVisible - 1) * AppConstants.CARD_ALPHA_FACTOR)
+
+            QuoteCard(
+                quote = quote,
+                index = cardMovingToBottomIndex,
+                onClick = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex(0f)
+                    .graphicsLayer {
+                        val progress = cardToBottomProgress.value
+                        // Arc path: start from left off-screen, curve to center-back
+                        translationX = lerp(-screenWidthPx, 0f, progress)
+                        // Y: Start slightly below, settle at back position (stacked UP)
+                        translationY = lerp(50.dp.toPx(), backCardTranslationY, progress)
+                        // Scale down to back card size
+                        val currentScale = lerp(1f, backCardScale, progress)
+                        scaleX = currentScale
+                        scaleY = currentScale
+                        // Fade to back card alpha
+                        alpha = lerp(1f, backCardAlpha, progress)
+                        // Rotation: Start tilted, end straight
+                        rotationZ = lerp(-10f, 0f, progress)
+                    }
+            )
         }
 
         // Draw from back to front
@@ -213,11 +375,11 @@ fun QuoteCardStack(
                             rotationZ = (offsetX.value / 40f).coerceIn(-AppConstants.MAX_ROTATION_DEGREES, AppConstants.MAX_ROTATION_DEGREES)
                         } else {
                             val effectiveI = i - dragProgress
-                            translationY = effectiveI * 20.dp.toPx()
-                            val scale = 1f - (effectiveI * 0.04f)
+                            translationY = -effectiveI * AppConstants.CARD_TRANSLATION_Y_DP.dp.toPx()
+                            val scale = 1f - (effectiveI * AppConstants.CARD_SCALE_FACTOR)
                             scaleX = scale
                             scaleY = scale
-                            alpha = 1f - (effectiveI * 0.15f)
+                            alpha = 1f - (effectiveI * AppConstants.CARD_ALPHA_FACTOR)
                         }
                     }
                     .then(
@@ -236,10 +398,39 @@ fun QuoteCardStack(
                                                 // Swipe LEFT = next quote (wrap to start at end)
                                                 offsetX.value < -threshold && nextIndex != null -> {
                                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+
+                                                    // Store the card for animation
+                                                    val swipedQuote = quotes.getOrNull(safeIndex)
+                                                    val swipedIndex = safeIndex
+
                                                     offsetX.animateTo(
                                                         targetValue = -AppConstants.SWIPE_EXIT_OFFSET,
                                                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
                                                     )
+
+                                                    // Check again after animation completes
+                                                    if (isActive) {
+                                                        // Start the card-to-bottom animation
+                                                        if (swipedQuote != null && quotes.size > 1) {
+                                                            cardMovingToBottom = swipedQuote
+                                                            cardMovingToBottomIndex = swipedIndex
+                                                            cardToBottomProgress.snapTo(0f)
+                                                        }
+
+                                                        onIndexChange(nextIndex)
+                                                        offsetX.snapTo(0f)
+
+                                                        // Animate the card to bottom
+                                                        if (swipedQuote != null && quotes.size > 1) {
+                                                            cardToBottomProgress.animateTo(
+                                                                targetValue = 1f,
+                                                                animationSpec = tween(
+                                                                    durationMillis = AppConstants.CARD_TO_BOTTOM_DURATION_MS,
+                                                                    easing = FastOutSlowInEasing
+                                                                )
+                                                            )
+                                                            cardMovingToBottom = null
+                                                        }
                                                     // Check again after animation completes
                                                     if (isActive) {
                                                         onIndexChange(nextIndex)
@@ -281,18 +472,6 @@ fun QuoteCardStack(
                             }
                         } else Modifier
                     )
-            )
-        }
-
-        // Card position indicator
-        if (quotes.size > 1) {
-            Text(
-                text = "\u00B7 ${safeIndex + 1}/${quotes.size} \u00B7",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 8.dp)
             )
         }
     }
@@ -364,7 +543,7 @@ fun AddQuotePeekFromRight(
                         }
                     )
                 },
-            shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
+            shape = RectangleShape,
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
             colors = CardDefaults.cardColors(containerColor = backgroundColor)
         ) {

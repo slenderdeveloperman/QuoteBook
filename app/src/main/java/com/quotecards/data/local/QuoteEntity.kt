@@ -10,6 +10,7 @@ data class QuoteEntity(
     val id: Long = 0,
     val text: String,
     val author: String,
+    val category: String = "",
     val createdAt: Long = System.currentTimeMillis()
 ) {
     fun toDomainModel(): Quote {
@@ -18,6 +19,7 @@ data class QuoteEntity(
             id = id,
             text = text,
             author = author.ifBlank { "Unknown" },
+            category = category,
             createdAt = createdAt
         )
     }
@@ -27,6 +29,7 @@ data class QuoteEntity(
             id = quote.id,
             text = quote.text,
             author = quote.author,
+            category = quote.category,
             createdAt = quote.createdAt
         )
     }

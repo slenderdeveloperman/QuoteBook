@@ -6,8 +6,10 @@ import com.quotecards.data.repository.QuoteRepository
 import com.quotecards.domain.model.Quote
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -15,6 +17,7 @@ import javax.inject.Inject
 data class AddQuoteUiState(
     val quoteText: String = "",
     val author: String = "",
+    val category: String = "",
     val isLoading: Boolean = false,
     val isSaved: Boolean = false,
     val errorMessage: String? = null
@@ -31,12 +34,24 @@ class AddQuoteViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AddQuoteUiState())
     val uiState: StateFlow<AddQuoteUiState> = _uiState.asStateFlow()
 
+    val categories: StateFlow<List<String>> = quoteRepository
+        .getCategories()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     fun updateQuoteText(text: String) {
         _uiState.update { it.copy(quoteText = text, errorMessage = null) }
     }
 
     fun updateAuthor(author: String) {
         _uiState.update { it.copy(author = author) }
+    }
+
+    fun updateCategory(category: String) {
+        _uiState.update { it.copy(category = category) }
     }
 
     fun saveQuote() {
@@ -56,7 +71,8 @@ class AddQuoteViewModel @Inject constructor(
             try {
                 val quote = Quote(
                     text = currentState.quoteText.trim(),
-                    author = currentState.author.trim().ifBlank { "Unknown" }
+                    author = currentState.author.trim().ifBlank { "Unknown" },
+                    category = currentState.category
                 )
                 quoteRepository.addQuote(quote)
                 _uiState.update { it.copy(isLoading = false, isSaved = true) }

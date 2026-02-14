@@ -17,11 +17,15 @@ private const val DB_TIMEOUT_MS = 5000L
 
 interface QuoteRepository {
     fun getAllQuotes(): Flow<List<Quote>>
+    fun getQuotesByCategory(category: String): Flow<List<Quote>>
+    fun getCategories(): Flow<List<String>>
+    fun getUncategorizedQuotes(): Flow<List<Quote>>
     suspend fun getQuoteById(id: Long): Quote?
     suspend fun addQuote(quote: Quote): Long
     suspend fun updateQuote(quote: Quote)
     suspend fun deleteQuote(quote: Quote)
     suspend fun deleteQuoteById(id: Long)
+    suspend fun assignQuotesToCategory(quoteIds: List<Long>, category: String)
     fun searchQuotes(query: String): Flow<List<Quote>>
 }
 
@@ -44,6 +48,24 @@ class QuoteRepositoryImpl @Inject constructor(
             }
             .catch { e ->
                 Log.e(TAG, "Database error in getAllQuotes", e)
+                emit(emptyList())
+            }
+    }
+
+    override fun getQuotesByCategory(category: String): Flow<List<Quote>> {
+        return quoteDao.getQuotesByCategory(category)
+            .map { entities ->
+                entities.mapNotNull { entity ->
+                    try {
+                        entity.toDomainModel()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to map entity: ${entity.id}", e)
+                        null
+                    }
+                }
+            }
+            .catch { e ->
+                Log.e(TAG, "Database error in getQuotesByCategory", e)
                 emit(emptyList())
             }
     }
@@ -102,5 +124,38 @@ class QuoteRepositoryImpl @Inject constructor(
                 Log.e(TAG, "Database error in searchQuotes", e)
                 emit(emptyList())
             }
+    }
+
+    override fun getCategories(): Flow<List<String>> {
+        return quoteDao.getCategories()
+            .catch { e ->
+                Log.e(TAG, "Database error in getCategories", e)
+                emit(emptyList())
+            }
+    }
+
+    override fun getUncategorizedQuotes(): Flow<List<Quote>> {
+        return quoteDao.getUncategorizedQuotes()
+            .map { entities ->
+                entities.mapNotNull { entity ->
+                    try {
+                        entity.toDomainModel()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to map entity: ${entity.id}", e)
+                        null
+                    }
+                }
+            }
+            .catch { e ->
+                Log.e(TAG, "Database error in getUncategorizedQuotes", e)
+                emit(emptyList())
+            }
+    }
+
+    override suspend fun assignQuotesToCategory(quoteIds: List<Long>, category: String) {
+        if (quoteIds.isEmpty()) return
+        withTimeout(DB_TIMEOUT_MS) {
+            quoteDao.assignQuotesToCategory(quoteIds, category)
+        }
     }
 }
